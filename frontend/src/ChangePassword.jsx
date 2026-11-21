@@ -1,8 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
+import API_URL from "./api";
 
 function ChangePassword() {
-
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,11 +22,10 @@ function ChangePassword() {
         }
 
         try {
-
             const token = localStorage.getItem("token");
 
             const response = await axios.put(
-                "http://localhost:5000/api/auth/change-password",
+                `${API_URL}/api/auth/change-password`,
                 {
                     currentPassword,
                     newPassword
@@ -45,40 +44,30 @@ function ChangePassword() {
             setConfirmPassword("");
 
         } catch (err) {
-
             setError(
                 err.response?.data?.message ||
                 "Unable to change password. Please try again."
             );
-
         }
     };
 
     return (
-
         <div className="student-management">
-
             <h2>Change Password</h2>
 
             <p>Update your account password securely.</p>
 
             {message && (
-                <p style={{ color: "green" }}>
-                    {message}
-                </p>
+                <p style={{ color: "green" }}>{message}</p>
             )}
 
             {error && (
-                <p style={{ color: "red" }}>
-                    {error}
-                </p>
+                <p style={{ color: "red" }}>{error}</p>
             )}
 
             <form onSubmit={handleSubmit}>
-
                 <div className="form-group">
                     <label>Current Password</label>
-
                     <input
                         type="password"
                         value={currentPassword}
@@ -90,7 +79,6 @@ function ChangePassword() {
 
                 <div className="form-group">
                     <label>New Password</label>
-
                     <input
                         type="password"
                         value={newPassword}
@@ -103,7 +91,6 @@ function ChangePassword() {
 
                 <div className="form-group">
                     <label>Confirm New Password</label>
-
                     <input
                         type="password"
                         value={confirmPassword}
@@ -117,11 +104,8 @@ function ChangePassword() {
                 <button type="submit">
                     Update Password
                 </button>
-
             </form>
-
         </div>
-
     );
 }
 

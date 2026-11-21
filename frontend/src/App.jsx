@@ -1,3 +1,5 @@
+
+import API_URL from "./api";
 import { useState } from "react";
 import axios from "axios";
 import Dashboard from "./Dashboard";
@@ -35,7 +37,7 @@ function App() {
 
         try {
             const response = await axios.post(
-                "http://localhost:5000/api/auth/login",
+                `${API_URL}/api/auth/login`,
                 { email, password }
             );
 
@@ -47,8 +49,11 @@ function App() {
             setUser(loggedInUser);
 
         } catch (err) {
+            console.error("Login Error:", err);
+
             setError(
-                err.response?.data?.message || "Login failed. Please try again."
+                err.response?.data?.message ||
+                "Login failed. Please try again."
             );
         } finally {
             setLoading(false);
@@ -65,7 +70,7 @@ function App() {
 
         try {
             const response = await axios.post(
-                "http://localhost:5000/api/auth/register",
+                `${API_URL}/api/auth/register`,
                 { name, email, password }
             );
 
@@ -76,8 +81,11 @@ function App() {
             setPassword("");
 
         } catch (err) {
+            console.error("Registration Error:", err);
+
             setError(
-                err.response?.data?.message || "Registration failed."
+                err.response?.data?.message ||
+                "Registration failed."
             );
         } finally {
             setLoading(false);
@@ -94,17 +102,21 @@ function App() {
 
         try {
             const response = await axios.post(
-                "http://localhost:5000/api/auth/forgot-password",
+                `${API_URL}/api/auth/forgot-password`,
                 { email }
             );
 
             setMessage(response.data.message);
+
             setIsForgotPassword(false);
             setIsResettingPassword(true);
 
         } catch (err) {
+            console.error("Forgot Password Error:", err);
+
             setError(
-                err.response?.data?.message || "Unable to send OTP."
+                err.response?.data?.message ||
+                "Unable to send OTP."
             );
         } finally {
             setLoading(false);
@@ -132,7 +144,7 @@ function App() {
 
         try {
             const response = await axios.post(
-                "http://localhost:5000/api/auth/reset-password",
+                `${API_URL}/api/auth/reset-password`,
                 {
                     email,
                     otp,
@@ -149,8 +161,11 @@ function App() {
             setPassword("");
 
         } catch (err) {
+            console.error("Reset Password Error:", err);
+
             setError(
-                err.response?.data?.message || "Password reset failed."
+                err.response?.data?.message ||
+                "Password reset failed."
             );
         } finally {
             setLoading(false);

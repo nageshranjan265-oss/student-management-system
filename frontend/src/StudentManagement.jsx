@@ -1,7 +1,9 @@
 import { useState } from "react";
 import axios from "axios";
+import API_URL from "./api";
 
 function StudentManagement() {
+
   const [student, setStudent] = useState({
     name: "",
     email: "",
@@ -29,7 +31,7 @@ function StudentManagement() {
       const token = localStorage.getItem("token");
 
       await axios.post(
-        "http://localhost:5000/api/students",
+        `${API_URL}/api/students`,
         student,
         {
           headers: {
@@ -49,21 +51,25 @@ function StudentManagement() {
         course: "",
         address: "",
       });
+
     } catch (error) {
+
       setMessage(
         error.response?.data?.message || "Failed to add student."
       );
+
     }
   };
 
   return (
     <div className="student-management">
-    
+
       <h2>Add New Student</h2>
 
       {message && <p>{message}</p>}
 
       <form onSubmit={handleSubmit}>
+
         <input
           type="text"
           name="name"
@@ -122,8 +128,12 @@ function StudentManagement() {
           onChange={handleChange}
         />
 
-        <button type="submit">Add Student</button>
+        <button type="submit">
+          Add Student
+        </button>
+
       </form>
+
     </div>
   );
 }

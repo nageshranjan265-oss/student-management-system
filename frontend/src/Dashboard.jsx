@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import API_URL from "./api";
 import "./Dashboard.css";
 
 import StudentManagement from "./StudentManagement";
@@ -65,154 +66,156 @@ function Dashboard({ user, onLogout }) {
     useEffect(() => {
 
         const fetchStudents = async () => {
-    try {
-        const token = localStorage.getItem("token");
+            try {
+                const token = localStorage.getItem("token");
 
-        const response = await axios.get(
-            "http://localhost:5000/api/students",
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
+                const response = await axios.get(
+                    `${API_URL}/api/students`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
+                const students = response.data.data || [];
+
+                setTotalStudents(students.length);
+
+                // Calculate Total Courses
+                const uniqueCourses = [
+                    ...new Set(
+                        students
+                            .map((student) => student.course)
+                            .filter(Boolean)
+                    )
+                ];
+
+                setTotalCourses(uniqueCourses.length);
+
+                // Course Chart Data
+                const courseCounts = students.reduce((acc, student) => {
+                    const course = student.course || "Not Assigned";
+
+                    acc[course] = (acc[course] || 0) + 1;
+
+                    return acc;
+                }, {});
+
+                const chartData = Object.keys(courseCounts).map((course) => ({
+                    name: course,
+                    students: courseCounts[course]
+                }));
+
+                setCourseData(chartData);
+
+                // Monthly Student Growth
+                const monthlyCounts = {};
+                const lastSixMonths = [];
+
+                for (let i = 5; i >= 0; i--) {
+                    const date = new Date();
+
+                    date.setDate(1);
+                    date.setMonth(date.getMonth() - i);
+
+                    const key = `${date.getFullYear()}-${String(
+                        date.getMonth() + 1
+                    ).padStart(2, "0")}`;
+
+                    const monthName = date.toLocaleString("en-US", {
+                        month: "short"
+                    });
+
+                    monthlyCounts[key] = 0;
+
+                    lastSixMonths.push({
+                        key,
+                        month: monthName
+                    });
                 }
-            }
-        );
 
-        const students = response.data.data || [];
+                students.forEach((student) => {
+                    let registrationDate = student.createdAt
+                        ? new Date(student.createdAt)
+                        : null;
 
-        setTotalStudents(students.length);
+                    if (
+                        (!registrationDate ||
+                            isNaN(registrationDate.getTime())) &&
+                        student._id
+                    ) {
+                        registrationDate = new Date(
+                            parseInt(student._id.substring(0, 8), 16) * 1000
+                        );
+                    }
 
-        // Calculate Total Courses
-        const uniqueCourses = [
-            ...new Set(
-                students
-                    .map((student) => student.course)
-                    .filter(Boolean)
-            )
-        ];
+                    if (
+                        registrationDate &&
+                        !isNaN(registrationDate.getTime())
+                    ) {
+                        const key = `${registrationDate.getFullYear()}-${String(
+                            registrationDate.getMonth() + 1
+                        ).padStart(2, "0")}`;
 
-        setTotalCourses(uniqueCourses.length);
+                        if (monthlyCounts[key] !== undefined) {
+                            monthlyCounts[key]++;
+                        }
+                    }
+                });
 
-        // Course Chart Data
-        const courseCounts = students.reduce((acc, student) => {
-            const course = student.course || "Not Assigned";
+                const growthChartData = lastSixMonths.map((item) => ({
+                    month: item.month,
+                    students: monthlyCounts[item.key]
+                }));
 
-            acc[course] = (acc[course] || 0) + 1;
+                setGrowthData(growthChartData);
 
-            return acc;
-        }, {});
+                // Sort Students
+                const sortedStudents = [...students].sort((a, b) => {
+                    const getTimestamp = (student) => {
+                        if (student.createdAt) {
+                            return new Date(student.createdAt).getTime();
+                        }
 
-        const chartData = Object.keys(courseCounts).map((course) => ({
-            name: course,
-            students: courseCounts[course]
-        }));
+                        return parseInt(
+                            String(student._id).substring(0, 8),
+                            16
+                        ) * 1000;
+                    };
 
-        setCourseData(chartData);
+                    return getTimestamp(b) - getTimestamp(a);
+                });
 
-        // Monthly Student Growth
-        const monthlyCounts = {};
-        const lastSixMonths = [];
+                setRecentStudents(sortedStudents.slice(0, 5));
 
-        for (let i = 5; i >= 0; i--) {
-            const date = new Date();
+                // Total Teachers - ADMIN ONLY
+                if (user?.role === "admin") {
+                    const teacherResponse = await axios.get(
+                        `${API_URL}/api/auth/teachers/count`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`
+                            }
+                        }
+                    );
 
-            date.setDate(1);
-            date.setMonth(date.getMonth() - i);
+                    setTotalTeachers(teacherResponse.data.totalTeachers);
+                } else {
+                    setTotalTeachers(0);
+                }
 
-            const key = `${date.getFullYear()}-${String(
-                date.getMonth() + 1
-            ).padStart(2, "0")}`;
-
-            const monthName = date.toLocaleString("en-US", {
-                month: "short"
-            });
-
-            monthlyCounts[key] = 0;
-
-            lastSixMonths.push({
-                key,
-                month: monthName
-            });
-        }
-
-        students.forEach((student) => {
-            let registrationDate = student.createdAt
-                ? new Date(student.createdAt)
-                : null;
-
-            if (
-                (!registrationDate ||
-                    isNaN(registrationDate.getTime())) &&
-                student._id
-            ) {
-                registrationDate = new Date(
-                    parseInt(student._id.substring(0, 8), 16) * 1000
+            } catch (error) {
+                console.log(
+                    "Unable to load dashboard statistics:",
+                    error
                 );
             }
+        };
 
-            if (
-                registrationDate &&
-                !isNaN(registrationDate.getTime())
-            ) {
-                const key = `${registrationDate.getFullYear()}-${String(
-                    registrationDate.getMonth() + 1
-                ).padStart(2, "0")}`;
+        fetchStudents();
 
-                if (monthlyCounts[key] !== undefined) {
-                    monthlyCounts[key]++;
-                }
-            }
-        });
-
-        const growthChartData = lastSixMonths.map((item) => ({
-            month: item.month,
-            students: monthlyCounts[item.key]
-        }));
-
-        setGrowthData(growthChartData);
-
-        // Sort Students
-        const sortedStudents = [...students].sort((a, b) => {
-            const getTimestamp = (student) => {
-                if (student.createdAt) {
-                    return new Date(student.createdAt).getTime();
-                }
-
-                return parseInt(
-                    String(student._id).substring(0, 8),
-                    16
-                ) * 1000;
-            };
-
-            return getTimestamp(b) - getTimestamp(a);
-        });
-
-        setRecentStudents(sortedStudents.slice(0, 5));
-
-        // Total Teachers - ADMIN ONLY
-        if (user?.role === "admin") {
-            const teacherResponse = await axios.get(
-                "http://localhost:5000/api/auth/teachers/count",
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
-
-            setTotalTeachers(teacherResponse.data.totalTeachers);
-        } else {
-            setTotalTeachers(0);
-        }
-
-    } catch (error) {
-        console.log(
-            "Unable to load dashboard statistics:",
-            error
-        );
-    }
-};
-
-    }, []);
+    }, [user?.role]);
 
     // ==========================================
     // FETCH ALL TEACHERS
@@ -224,11 +227,10 @@ function Dashboard({ user, onLogout }) {
         setTeachersError("");
 
         try {
-
             const token = localStorage.getItem("token");
 
             const response = await axios.get(
-                "http://localhost:5000/api/auth/teachers",
+                `${API_URL}/api/auth/teachers`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -240,14 +242,12 @@ function Dashboard({ user, onLogout }) {
             setTotalTeachers(response.data.totalTeachers || 0);
 
         } catch (error) {
-
             setTeachersError(
                 error.response?.data?.message ||
                 "Unable to load teachers. Please try again."
             );
 
         } finally {
-
             setTeachersLoading(false);
         }
     };
@@ -270,69 +270,68 @@ function Dashboard({ user, onLogout }) {
 
     const handleAddTeacher = async (e) => {
 
-    e.preventDefault();
+        e.preventDefault();
 
-    setTeacherMessage("");
-    setTeacherError("");
-    setTeacherLoading(true);
+        setTeacherMessage("");
+        setTeacherError("");
+        setTeacherLoading(true);
 
-    try {
+        try {
+            // Get Admin authentication token
+            const token = localStorage.getItem("token");
 
-        // Get Admin authentication token
-        const token = localStorage.getItem("token");
+            if (!token) {
+                throw new Error(
+                    "Authentication token not found. Please log in again."
+                );
+            }
 
-        if (!token) {
-            throw new Error("Authentication token not found. Please log in again.");
+            // Create Teacher (Admin Only)
+            const response = await axios.post(
+                `${API_URL}/api/auth/teachers`,
+                {
+                    name: teacherName,
+                    email: teacherEmail,
+                    password: teacherPassword
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            setTeacherMessage(
+                response.data.message || "Teacher created successfully!"
+            );
+
+            setTeacherName("");
+            setTeacherEmail("");
+            setTeacherPassword("");
+
+            // Refresh Teacher Count
+            const teacherResponse = await axios.get(
+                `${API_URL}/api/auth/teachers/count`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            setTotalTeachers(teacherResponse.data.totalTeachers);
+
+        } catch (error) {
+            setTeacherError(
+                error.response?.data?.message ||
+                error.message ||
+                "Unable to create teacher. Please try again."
+            );
+
+        } finally {
+            setTeacherLoading(false);
         }
-
-        // Create Teacher (Admin Only)
-        const response = await axios.post(
-            "http://localhost:5000/api/auth/teachers",
-            {
-                name: teacherName,
-                email: teacherEmail,
-                password: teacherPassword
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        setTeacherMessage(
-            response.data.message || "Teacher created successfully!"
-        );
-
-        setTeacherName("");
-        setTeacherEmail("");
-        setTeacherPassword("");
-
-        // Refresh Teacher Count
-        const teacherResponse = await axios.get(
-            "http://localhost:5000/api/auth/teachers/count",
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        setTotalTeachers(teacherResponse.data.totalTeachers);
-
-    } catch (error) {
-
-        setTeacherError(
-            error.response?.data?.message ||
-            error.message ||
-            "Unable to create teacher. Please try again."
-        );
-
-    } finally {
-
-        setTeacherLoading(false);
-    }
-};
+    };
 
     // ==========================================
     // OPEN ADD STUDENT PAGE
@@ -394,9 +393,7 @@ function Dashboard({ user, onLogout }) {
                     </button>
 
                     {user?.role === "admin" && (
-
                         <>
-
                             <button
                                 className={activePage === "teachers" ? "active" : ""}
                                 onClick={() => {
@@ -414,9 +411,7 @@ function Dashboard({ user, onLogout }) {
                             >
                                 👥 View Teachers
                             </button>
-
                         </>
-
                     )}
 
                     <button
@@ -462,9 +457,7 @@ function Dashboard({ user, onLogout }) {
                     {/* DASHBOARD PAGE */}
 
                     {activePage === "dashboard" && (
-
                         <>
-
                             <h1>Welcome, {user?.name}!</h1>
 
                             <p className="dashboard-subtitle">
@@ -506,17 +499,12 @@ function Dashboard({ user, onLogout }) {
                                     <h2>Students by Course</h2>
 
                                     {courseData.length === 0 ? (
-
                                         <p className="chart-empty">
                                             No course data available yet.
                                         </p>
-
                                     ) : (
-
                                         <ResponsiveContainer width="100%" height={300}>
-
                                             <PieChart>
-
                                                 <Pie
                                                     data={courseData}
                                                     dataKey="students"
@@ -526,25 +514,18 @@ function Dashboard({ user, onLogout }) {
                                                     outerRadius={95}
                                                     label
                                                 >
-
                                                     {courseData.map((entry, index) => (
-
                                                         <Cell
                                                             key={`cell-${index}`}
                                                             fill={COLORS[index % COLORS.length]}
                                                         />
-
                                                     ))}
-
                                                 </Pie>
 
                                                 <Tooltip />
                                                 <Legend />
-
                                             </PieChart>
-
                                         </ResponsiveContainer>
-
                                     )}
 
                                 </div>
@@ -554,17 +535,12 @@ function Dashboard({ user, onLogout }) {
                                     <h2>Students per Course</h2>
 
                                     {courseData.length === 0 ? (
-
                                         <p className="chart-empty">
                                             No course data available yet.
                                         </p>
-
                                     ) : (
-
                                         <ResponsiveContainer width="100%" height={300}>
-
                                             <BarChart data={courseData}>
-
                                                 <CartesianGrid strokeDasharray="3 3" />
                                                 <XAxis dataKey="name" />
                                                 <YAxis allowDecimals={false} />
@@ -575,11 +551,8 @@ function Dashboard({ user, onLogout }) {
                                                     fill="#2563eb"
                                                     radius={[6, 6, 0, 0]}
                                                 />
-
                                             </BarChart>
-
                                         </ResponsiveContainer>
-
                                     )}
 
                                 </div>
@@ -595,9 +568,7 @@ function Dashboard({ user, onLogout }) {
                                 </p>
 
                                 <ResponsiveContainer width="100%" height={320}>
-
                                     <LineChart data={growthData}>
-
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="month" />
                                         <YAxis allowDecimals={false} />
@@ -612,9 +583,7 @@ function Dashboard({ user, onLogout }) {
                                             strokeWidth={3}
                                             activeDot={{ r: 7 }}
                                         />
-
                                     </LineChart>
-
                                 </ResponsiveContainer>
 
                             </div>
@@ -634,13 +603,10 @@ function Dashboard({ user, onLogout }) {
                                 </div>
 
                                 {recentStudents.length === 0 ? (
-
                                     <p className="no-recent-students">
                                         No students registered yet.
                                     </p>
-
                                 ) : (
-
                                     <div className="recent-students-table">
 
                                         <table>
@@ -657,7 +623,6 @@ function Dashboard({ user, onLogout }) {
                                             <tbody>
 
                                                 {recentStudents.map((student) => (
-
                                                     <tr key={student._id}>
                                                         <td>{student.name}</td>
                                                         <td>{student.email}</td>
@@ -669,7 +634,6 @@ function Dashboard({ user, onLogout }) {
                                                             </span>
                                                         </td>
                                                     </tr>
-
                                                 ))}
 
                                             </tbody>
@@ -677,13 +641,11 @@ function Dashboard({ user, onLogout }) {
                                         </table>
 
                                     </div>
-
                                 )}
 
                             </div>
 
                         </>
-
                     )}
 
                     {/* ADD STUDENT */}
@@ -916,9 +878,7 @@ function Dashboard({ user, onLogout }) {
                                                 <tr key={teacher._id}>
 
                                                     <td>{index + 1}</td>
-
                                                     <td>{teacher.name}</td>
-
                                                     <td>{teacher.email}</td>
 
                                                     <td>
@@ -957,7 +917,6 @@ function Dashboard({ user, onLogout }) {
         </div>
 
     );
-
 }
 
 export default Dashboard;
